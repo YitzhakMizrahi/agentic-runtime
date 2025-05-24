@@ -1,8 +1,14 @@
 // src/protocol/mod.rs
 
 #[derive(Clone, Debug)]
+pub enum PlanStep {
+    Info(String),
+    ToolCall(String),
+}
+
+#[derive(Clone, Debug)]
 pub struct Plan {
-    pub steps: Vec<String>, // For now, a list of action descriptions
+    pub steps: Vec<PlanStep>,
 }
 
 #[derive(Clone, Debug)]
