@@ -24,6 +24,7 @@ impl Agent for BasicAgent {
                 PlanStep::ToolCall("git_status".into()),
                 PlanStep::ToolCall("echo".into()),
                 PlanStep::ToolCall("reflect".into()),
+                PlanStep::ToolCall("llm".into()),
                 PlanStep::Info("Generate output".into()),
             ],
         }
