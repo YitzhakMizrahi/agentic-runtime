@@ -2,6 +2,7 @@
 
 pub mod fake_echo;
 pub mod git_status;
+pub mod llm;
 pub mod reflector;
 
 /// Tool metadata for discoverability and planning.
@@ -56,4 +57,5 @@ pub trait Tool {
 
 pub use fake_echo::FakeEchoTool;
 pub use git_status::GitStatusTool;
+pub use llm::LLMTool;
 pub use reflector::ReflectorTool;
