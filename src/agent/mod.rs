@@ -2,7 +2,7 @@
 
 use crate::context::Context;
 use crate::model::TaskModel;
-use crate::protocol::{ExecutionResult, Feedback, Plan, SimulationResult};
+use crate::protocol::{ExecutionResult, Feedback, Plan, PlanStep, SimulationResult};
 
 pub trait Agent {
     fn plan(&mut self) -> Plan;
@@ -20,9 +20,10 @@ impl Agent for BasicAgent {
     fn plan(&mut self) -> Plan {
         Plan {
             steps: vec![
-                format!("Understand goal: {}", self.model.goal),
-                "tool:git_status".into(),
-                "Generate output".into(),
+                PlanStep::Info(format!("Understand goal: {}", self.model.goal)),
+                PlanStep::ToolCall("git_status".into()),
+                PlanStep::ToolCall("echo".into()),
+                PlanStep::Info("Generate output".into()),
             ],
         }
     }
@@ -40,8 +41,8 @@ impl Agent for BasicAgent {
         let mut success = true;
 
         for step in &plan.steps {
-            if let Some(tool_name) = step.strip_prefix("tool:") {
-                match self.context.get_tool(tool_name) {
+            match step {
+                PlanStep::ToolCall(tool_name) => match self.context.get_tool(tool_name) {
                     Some(tool) => {
                         let result = tool.execute(&self.model.goal);
                         if result.success {
@@ -60,6 +61,9 @@ impl Agent for BasicAgent {
                         success = false;
                         errors.push(format!("Tool not found: {}", tool_name));
                     }
+                },
+                PlanStep::Info(message) => {
+                    combined_output.push_str(&format!("[INFO] {}\n", message));
                 }
             }
         }
