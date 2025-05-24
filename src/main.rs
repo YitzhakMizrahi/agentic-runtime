@@ -4,7 +4,7 @@ use agentic_runtime::agent::{Agent, BasicAgent};
 use agentic_runtime::context::Context;
 use agentic_runtime::memory::Memory;
 use agentic_runtime::model::TaskModel;
-use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, ReflectorTool};
+use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool};
 
 fn main() {
     let model = TaskModel::new("Check Git status");
@@ -14,6 +14,7 @@ fn main() {
         .register_tool(FakeEchoTool)
         .register_tool(GitStatusTool)
         .register_tool(ReflectorTool::new())
+        .register_tool(LLMTool::new("llama3"))
         .enable_dry_run();
 
     let mut agent = BasicAgent { model, context };
