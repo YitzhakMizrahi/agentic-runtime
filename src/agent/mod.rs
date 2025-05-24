@@ -39,29 +39,33 @@ impl Agent for BasicAgent {
         let mut combined_output = String::new();
         let mut errors = vec![];
         let mut success = true;
+        let mut latest_output = self.model.goal.clone();
 
         for step in &plan.steps {
             match step {
-                PlanStep::ToolCall(tool_name) => match self.context.get_tool(tool_name) {
-                    Some(tool) => {
-                        let result = tool.execute(&self.model.goal);
-                        if result.success {
-                            if let Some(output) = result.output {
-                                combined_output.push_str(&output);
-                                combined_output.push('\n');
-                            }
-                        } else {
-                            success = false;
-                            if let Some(err) = result.error {
-                                errors.push(err);
+                PlanStep::ToolCall(tool_name) => {
+                    match self.context.get_tool(tool_name) {
+                        Some(tool) => {
+                            let result = tool.execute(&latest_output);
+                            if result.success {
+                                if let Some(output) = result.output.clone() {
+                                    combined_output.push_str(&output);
+                                    combined_output.push('\n');
+                                    latest_output = output; // update chaining
+                                }
+                            } else {
+                                success = false;
+                                if let Some(err) = result.error.clone() {
+                                    errors.push(err);
+                                }
                             }
                         }
+                        None => {
+                            success = false;
+                            errors.push(format!("Tool not found: {}", tool_name));
+                        }
                     }
-                    None => {
-                        success = false;
-                        errors.push(format!("Tool not found: {}", tool_name));
-                    }
-                },
+                }
                 PlanStep::Info(message) => {
                     combined_output.push_str(&format!("[INFO] {}\n", message));
                 }
