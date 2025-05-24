@@ -1,5 +1,6 @@
 use agentic_runtime::agent::{Agent, BasicAgent};
 use agentic_runtime::context::Context;
+use agentic_runtime::memory::Memory;
 use agentic_runtime::model::TaskModel;
 use agentic_runtime::tools::{FakeEchoTool, GitStatusTool};
 
@@ -21,4 +22,8 @@ fn main() {
     println!("--- SIMULATION ---\n{:#?}", sim);
     println!("--- EXECUTION ---\n{:#?}", exec);
     println!("--- FEEDBACK ---\n{:#?}", feedback);
+    println!("--- MEMORY LOG ---");
+    for (label, content) in agent.context.memory().read_all() {
+        println!("[{}] {}", label, content);
+    }
 }
