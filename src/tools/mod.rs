@@ -34,4 +34,7 @@ pub trait Tool {
 }
 
 pub mod fake_echo;
+pub mod git_status;
+
 pub use fake_echo::FakeEchoTool;
+pub use git_status::GitStatusTool;
