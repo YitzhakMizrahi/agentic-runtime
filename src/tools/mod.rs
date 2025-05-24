@@ -1,5 +1,17 @@
 // src/tools/mod.rs
 
+pub mod fake_echo;
+pub mod git_status;
+
+/// Tool metadata for discoverability and planning.
+#[derive(Debug, Clone)]
+pub struct ToolSpec {
+    pub name: String,
+    pub description: String,
+    pub input_hint: String,
+    pub tags: Vec<String>,
+}
+
 /// The result of executing a tool.
 #[derive(Debug, Clone)]
 pub struct ToolResult {
@@ -31,10 +43,15 @@ pub trait Tool {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn execute(&self, input: &str) -> ToolResult;
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: self.name().to_string(),
+            description: self.description().to_string(),
+            input_hint: "Freeform string input".to_string(),
+            tags: vec!["generic".into()],
+        }
+    }
 }
-
-pub mod fake_echo;
-pub mod git_status;
 
 pub use fake_echo::FakeEchoTool;
 pub use git_status::GitStatusTool;
