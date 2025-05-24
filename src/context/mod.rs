@@ -1,5 +1,6 @@
 // src/context/mod.rs
 
+use crate::memory::{InMemoryLog, Memory};
 use crate::tools::Tool;
 use std::collections::HashMap;
 
@@ -7,8 +8,8 @@ use std::collections::HashMap;
 pub struct Context {
     pub dry_run: bool,
     pub llm_provider: Option<String>,
-    #[allow(clippy::type_complexity)]
     pub tools: HashMap<String, Box<dyn Tool + Send + Sync>>,
+    pub memory: InMemoryLog,
 }
 
 impl Context {
@@ -17,6 +18,7 @@ impl Context {
             tools: HashMap::new(),
             dry_run: false,
             llm_provider: None,
+            memory: InMemoryLog::new(),
         }
     }
 
@@ -37,6 +39,18 @@ impl Context {
 
     pub fn get_tool(&self, name: &str) -> Option<&(dyn Tool + Send + Sync)> {
         self.tools.get(name).map(|boxed| boxed.as_ref())
+    }
+
+    pub fn memory(&self) -> &InMemoryLog {
+        &self.memory
+    }
+
+    pub fn memory_mut(&mut self) -> &mut InMemoryLog {
+        &mut self.memory
+    }
+
+    pub fn log(&mut self, label: &str, content: &str) {
+        self.memory.log(label, content);
     }
 }
 
