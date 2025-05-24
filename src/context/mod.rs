@@ -1,26 +1,27 @@
 // src/context/mod.rs
 
+use crate::tools::Tool;
 use std::collections::HashMap;
 
 /// Basic runtime context for an agent — gives access to tools and config.
-#[derive(Clone, Debug)]
 pub struct Context {
-    pub tool_registry: HashMap<String, String>, // Placeholder, will later map to Tool trait
     pub dry_run: bool,
     pub llm_provider: Option<String>,
+    #[allow(clippy::type_complexity)]
+    pub tools: HashMap<String, Box<dyn Tool + Send + Sync>>,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
-            tool_registry: HashMap::new(),
+            tools: HashMap::new(),
             dry_run: false,
             llm_provider: None,
         }
     }
 
-    pub fn with_tool(mut self, name: &str, id: &str) -> Self {
-        self.tool_registry.insert(name.into(), id.into());
+    pub fn register_tool<T: Tool + Send + Sync + 'static>(mut self, tool: T) -> Self {
+        self.tools.insert(tool.name().into(), Box::new(tool));
         self
     }
 
@@ -32,6 +33,10 @@ impl Context {
     pub fn enable_dry_run(mut self) -> Self {
         self.dry_run = true;
         self
+    }
+
+    pub fn get_tool(&self, name: &str) -> Option<&(dyn Tool + Send + Sync)> {
+        self.tools.get(name).map(|boxed| boxed.as_ref())
     }
 }
 
