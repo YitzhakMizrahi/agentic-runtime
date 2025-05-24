@@ -26,3 +26,13 @@ Because the future will run on agents — and we need a trustworthy, open founda
 * `protocol/` – Planning, simulation, reflection logic
 * `tools/` – Executable tool interfaces (Git, Search, etc.)
 * `memory/` – Memory interfaces and backends
+
+## Development Standards
+
+All commits must pass:
+
+- `cargo fmt` (formatting)
+- `cargo clippy` (linting with no warnings)
+- `cargo check` (basic build check)
+
+These are enforced via a native Git pre-commit hook in `.git/hooks/pre-commit`.
