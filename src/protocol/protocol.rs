@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 #[derive(Clone, Debug)]
 pub struct Plan {
     pub steps: Vec<String>, // For now, a list of action descriptions
