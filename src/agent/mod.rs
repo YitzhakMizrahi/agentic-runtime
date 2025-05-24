@@ -28,10 +28,35 @@ impl Agent for BasicAgent {
         }
     }
 
-    fn simulate(&self, _plan: &Plan) -> SimulationResult {
+    fn simulate(&self, plan: &Plan) -> SimulationResult {
+        let mut warnings = vec![];
+        let mut tools_used = vec![];
+
+        for step in &plan.steps {
+            if let PlanStep::ToolCall(name) = step {
+                if let Some(tool) = self.context.get_tool(name) {
+                    let spec = tool.spec();
+                    tools_used.push(format!(
+                        "[TOOL] {} - {} (hint: {})",
+                        spec.name, spec.description, spec.input_hint
+                    ));
+                } else {
+                    warnings.push(format!("Tool '{}' not registered", name));
+                }
+            }
+        }
+
+        let predicted = format!(
+            "Plan contains {} step(s) and will attempt {} tool call(s).",
+            plan.steps.len(),
+            tools_used.len()
+        );
+
+        warnings.extend(tools_used);
+
         SimulationResult {
-            predicted_outcome: format!("Will likely achieve: {}", self.model.goal),
-            warnings: vec!["Plan contains tool execution steps.".into()],
+            predicted_outcome: predicted,
+            warnings,
         }
     }
 
@@ -43,29 +68,27 @@ impl Agent for BasicAgent {
 
         for step in &plan.steps {
             match step {
-                PlanStep::ToolCall(tool_name) => {
-                    match self.context.get_tool(tool_name) {
-                        Some(tool) => {
-                            let result = tool.execute(&latest_output);
-                            if result.success {
-                                if let Some(output) = result.output.clone() {
-                                    combined_output.push_str(&output);
-                                    combined_output.push('\n');
-                                    latest_output = output; // update chaining
-                                }
-                            } else {
-                                success = false;
-                                if let Some(err) = result.error.clone() {
-                                    errors.push(err);
-                                }
+                PlanStep::ToolCall(tool_name) => match self.context.get_tool(tool_name) {
+                    Some(tool) => {
+                        let result = tool.execute(&latest_output);
+                        if result.success {
+                            if let Some(output) = result.output.clone() {
+                                combined_output.push_str(&output);
+                                combined_output.push('\n');
+                                latest_output = output;
+                            }
+                        } else {
+                            success = false;
+                            if let Some(err) = result.error.clone() {
+                                errors.push(err);
                             }
                         }
-                        None => {
-                            success = false;
-                            errors.push(format!("Tool not found: {}", tool_name));
-                        }
                     }
-                }
+                    None => {
+                        success = false;
+                        errors.push(format!("Tool not found: {}", tool_name));
+                    }
+                },
                 PlanStep::Info(message) => {
                     combined_output.push_str(&format!("[INFO] {}\n", message));
                 }
