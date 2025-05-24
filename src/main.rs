@@ -5,6 +5,7 @@ use agentic_runtime::context::Context;
 use agentic_runtime::memory::Memory;
 use agentic_runtime::model::TaskModel;
 use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool};
+use colored::Colorize;
 
 fn main() {
     let model = TaskModel::new("Check Git status");
@@ -24,13 +25,18 @@ fn main() {
     let exec = agent.execute(&plan);
     let feedback = agent.evaluate(&exec);
 
-    println!("--- PLAN ---\n{:#?}", plan);
-    println!("--- SIMULATION ---\n{:#?}", sim);
-    println!("--- EXECUTION ---\n{:#?}", exec);
-    println!("--- FEEDBACK ---\n{:#?}", feedback);
-    println!("--- MEMORY LOG ---");
+    println!("{}\n{:#?}", "--- PLAN ---".blue().bold(), plan);
+    println!("{}\n{:#?}", "--- SIMULATION ---".yellow().bold(), sim);
+    println!("{}\n{:#?}", "--- EXECUTION ---".green().bold(), exec);
+    println!("{}\n{:#?}", "--- FEEDBACK ---".magenta().bold(), feedback);
+    println!("{}", "--- MEMORY LOG ---".cyan().bold());
+
     for (label, content) in agent.context.memory().read_all() {
-        println!("[{}] {}", label, content);
+        println!(
+            "{} {}",
+            label.green().bold(),
+            format_args!("input: {}", content)
+        );
     }
 
     // Step 2: run ReflectorTool manually using memory log as input
@@ -45,8 +51,12 @@ fn main() {
             .join("\n");
 
         let reflection = tool.execute(&memory_as_text);
-        println!("--- REFLECTION ---\n{:#?}", reflection);
+        println!(
+            "{}\n{:#?}",
+            "--- REFLECTION ---".bright_white().bold(),
+            reflection
+        );
     } else {
-        println!("ReflectorTool not found");
+        println!("{}", "ReflectorTool not found".red());
     }
 }
