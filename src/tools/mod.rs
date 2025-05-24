@@ -32,3 +32,6 @@ pub trait Tool {
     fn description(&self) -> &str;
     fn execute(&self, input: &str) -> ToolResult;
 }
+
+pub mod fake_echo;
+pub use fake_echo::FakeEchoTool;
