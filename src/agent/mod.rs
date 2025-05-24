@@ -71,6 +71,16 @@ impl Agent for BasicAgent {
                 PlanStep::ToolCall(tool_name) => match self.context.get_tool(tool_name) {
                     Some(tool) => {
                         let result = tool.execute(&latest_output);
+
+                        self.context.log(
+                            &format!("tool: {}", tool_name),
+                            &format!(
+                                "input: {}\noutput: {}",
+                                latest_output,
+                                result.output.clone().unwrap_or_default()
+                            ),
+                        );
+
                         if result.success {
                             if let Some(output) = result.output.clone() {
                                 combined_output.push_str(&output);
@@ -91,6 +101,7 @@ impl Agent for BasicAgent {
                 },
                 PlanStep::Info(message) => {
                     combined_output.push_str(&format!("[INFO] {}\n", message));
+                    self.context.log("info", message);
                 }
             }
         }
