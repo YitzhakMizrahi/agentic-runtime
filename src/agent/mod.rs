@@ -34,13 +34,25 @@ impl Agent for BasicAgent {
         }
     }
 
-    fn execute(&mut self, plan: &Plan) -> ExecutionResult {
-        let output = format!("Executed plan with {} steps", plan.steps.len());
-        self.model.set_output(output.clone());
-        ExecutionResult {
-            success: true,
-            output: Some(output),
-            errors: vec![],
+    fn execute(&mut self, _plan: &Plan) -> ExecutionResult {
+        let input = self.model.goal.clone();
+
+        if let Some(tool) = self.context.get_tool("echo") {
+            let result = tool.execute(&input);
+            let output_str = result.output.as_ref().cloned().unwrap_or_default();
+            self.model.set_output(output_str.clone());
+
+            ExecutionResult {
+                success: result.success,
+                output: Some(output_str),
+                errors: result.error.into_iter().collect(),
+            }
+        } else {
+            ExecutionResult {
+                success: false,
+                output: None,
+                errors: vec!["Echo tool not found".into()],
+            }
         }
     }
 
