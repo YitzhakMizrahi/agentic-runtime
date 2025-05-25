@@ -1,11 +1,11 @@
-// src/protocol/planner.rs
-
 use crate::context::Context;
 use crate::protocol::{Plan, PlanStep};
 use crate::tools::Tool;
 use crate::tools::llm::LLMTool;
+use crate::validation::plan::validate_plan;
 use regex::Regex;
 use serde::Deserialize;
+use serde_json::Value;
 
 pub trait Planner: Send + Sync {
     fn generate_plan(&self, context: &mut Context, goal: &str) -> Plan;
@@ -34,57 +34,57 @@ impl Planner for LLMPlanner {
         let prompt = format!(
             r#"You are an autonomous planning agent.
                 
-                Your task is to produce a precise, minimal action plan in **strict JSON format** to accomplish the goal below.
+                Your job is to generate a **minimal, valid** action plan in **strict JSON format** to achieve the given goal.
                 
                 ---
-                
-                ### ❗ Allowed Step Types
-                
-                You may only use:
-                
-                - `"type": "tool"` with one of the following tool names:
-                  - `"run_command"` – to execute a shell command (e.g. `"ls -la"`, `"git push"`)
-                  - `"git_status"` – runs `git status` (no input needed)
-                  - `"reflect"` – summarizes memory log (e.g. `"input": "$output[run_command]"`)
-                  - `"echo"` – returns the string in `input` (for logging/debug)
-                
-                - `"type": "info"` with a `message` field to narrate or annotate progress
-                
-                ⚠️ Do **not** use other types like `"shell_command"`, `"log"`, `"reflect"` as a separate type, or any invented variant.
-                
+
+                ### 🧠 Guidelines
+
+                - Think before acting: break the task into atomic steps.
+                - Prefer precision and minimalism.
+                - Only include steps directly required to accomplish the goal.
+
                 ---
-                
-                ### ✅ JSON Output Format
 
-                Each step must be an object with:
+                ### 🚫 Hard Constraints
 
-                - `"type": "tool"` — for any tool invocation
-                - `"name": "<tool_name>"` — the registered tool name (e.g., `run_command`, `git_status`)
-                - `"input": "<string>"` — what to pass as input to the tool
+                - The only valid values for "type" are "tool" and "info".
+                - Use "type": "tool" with a valid "name" for **all tools**, including `echo`.
+                - Do **not** invent new types like "reflect", "log", or "echo" as top-level `type`.
+                - Do not include markdown, commentary, or explanations. Respond with JSON only.
 
-                For example:
-                
-                ```json
+                ---
+
+                ### 🛠️ Available Tools
+
+                - **run_command**: Executes a shell command. Input must be a valid terminal command (e.g. "cargo check", "ls -la").
+                - **git_status**: Returns output of `git status`. Input is optional and ignored.
+                - **reflect**: Summarizes the memory log. Input can be plain text or a reference like `$output[...]`.
+                - **echo**: Returns the input string unchanged. Useful for debug or log steps.
+
+                ---
+
+                ### 🧪 Output Format (Strict JSON)
+
                 {{
                   "plan": [
-                    {{ "type": "tool", "name": "git_status" }},
-                    {{ "type": "tool", "name": "run_command", "input": "git add ." }},
-                    {{ "type": "tool", "name": "run_command", "input": "git push" }},
-                    {{ "type": "info", "message": "Changes staged and pushed." }}
+                    {{ "type": "tool", "name": "run_command", "input": "cargo check" }},
+                    {{ "type": "tool", "name": "reflect", "input": "$output[run_command]" }},
+                    {{ "type": "tool", "name": "echo", "input": "Now reflecting on results..." }},
+                    {{ "type": "info", "message": "Compilation check complete." }}
                   ]
                 }}
-             
-                ❗ Do not use "type": "run_command" — always use "type": "tool" with "name": "run_command".
+
                 ---
-                
-                ### 🧩 Context: Memory Log
-                
+
+                ### 🤩 Context: Memory Log
+
                 {memory_dump}
-                
+
                 ---
-                
-                ### 🧭 Goal
-                
+
+                ### 🛍️ Goal
+
                 "{goal}"
                 "#
         );
@@ -95,47 +95,92 @@ impl Planner for LLMPlanner {
         context.log("planner", "--- DEBUG: Raw planner output ---");
         context.log("planner", &raw);
 
-        let json = Regex::new(r"\{[\s\S]*\}")
+        let cleaned = raw
+            .lines()
+            .filter(|line| {
+                !line.trim_start().starts_with("```")
+                    && !line.trim_start().starts_with("<think>")
+                    && !line.trim_start().starts_with("</think>")
+                    && !line.trim_start().starts_with("---")
+                    && !line.trim_start().starts_with("### ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let json_str = Regex::new(r#"(?s)\{\s*"plan"\s*:\s*\[.*?\]\s*\}"#)
             .unwrap()
-            .find(&raw)
+            .find(&cleaned)
             .map(|m| m.as_str().to_string())
             .unwrap_or_default();
 
         context.log("planner", "--- DEBUG: Extracted JSON block ---");
-        context.log("planner", &json);
+        context.log("planner", &json_str);
 
-        match result.success {
-            true => match serde_json::from_str::<PlannerResponse>(&json) {
-                Ok(parsed) => Plan {
-                    steps: parsed
-                        .plan
-                        .into_iter()
-                        .map(|step| match step {
-                            PlannerStep::Tool { name, input } => PlanStep::ToolCall {
-                                name,
-                                input: input.unwrap_or_default(),
-                            },
-                            PlannerStep::Info { message } => PlanStep::Info(message),
-                        })
-                        .collect(),
-                },
-                Err(e) => {
-                    context.log(
-                        "planner",
-                        &format!(
-                            "❌ Failed to parse plan:\n{}\n\n[raw]: {}\n\n[cleaned]: {}",
-                            e, raw, json
-                        ),
-                    );
-                    Plan {
-                        steps: vec![PlanStep::Info("Failed to parse structured plan.".into())],
-                    }
-                }
+        if !result.success {
+            context.log("planner", &format!("❌ Planner LLM failed: {}", raw));
+            return Plan {
+                steps: vec![PlanStep::Info("Planner LLM failed.".into())],
+            };
+        }
+
+        let parsed_json: Value = match serde_json::from_str(&json_str) {
+            Ok(val) => val,
+            Err(e) => {
+                context.log(
+                    "planner",
+                    &format!(
+                        "❌ Failed to parse raw JSON:\n{}\n\n[raw]: {}\n\n[cleaned]: {}",
+                        e, raw, json_str
+                    ),
+                );
+                return Plan {
+                    steps: vec![PlanStep::Info("Failed to parse structured plan.".into())],
+                };
+            }
+        };
+
+        let plan_steps_json = parsed_json
+            .get("plan")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        let registered_tools = ["run_command", "git_status", "reflect", "echo"];
+        let validation_errors = validate_plan(&plan_steps_json, &registered_tools);
+
+        for error in validation_errors.iter() {
+            let (msg, maybe_hint) = error.hint();
+            context.log("planner", &format!("⚠️ Validation warning: {}", msg));
+            if let Some(hint) = maybe_hint {
+                context.log("planner", &format!("→ Hint: {}", hint));
+            }
+        }
+
+        let response = serde_json::from_str::<PlannerResponse>(&json_str);
+        match response {
+            Ok(parsed) => Plan {
+                steps: parsed
+                    .plan
+                    .into_iter()
+                    .map(|step| match step {
+                        PlannerStep::Tool { name, input } => PlanStep::ToolCall {
+                            name,
+                            input: input.unwrap_or_default(),
+                        },
+                        PlannerStep::Info { message } => PlanStep::Info(message),
+                    })
+                    .collect(),
             },
-            false => {
-                context.log("planner", &format!("❌ Planner LLM failed: {}", raw));
+            Err(e) => {
+                context.log(
+                    "planner",
+                    &format!(
+                        "❌ Failed to parse into PlannerResponse:\n{}\n\n[raw]: {}\n\n[json]: {}",
+                        e, raw, json_str
+                    ),
+                );
                 Plan {
-                    steps: vec![PlanStep::Info("Planner LLM failed.".into())],
+                    steps: vec![PlanStep::Info("Planner JSON parse error.".into())],
                 }
             }
         }
