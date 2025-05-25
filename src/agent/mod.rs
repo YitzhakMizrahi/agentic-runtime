@@ -3,6 +3,7 @@
 use crate::context::Context;
 use crate::model::TaskModel;
 use crate::protocol::planner::Planner;
+use crate::protocol::replanner::Replanner;
 use crate::protocol::{ExecutionResult, Feedback, Plan, PlanStep, SimulationResult};
 
 pub trait Agent {
@@ -10,20 +11,28 @@ pub trait Agent {
     fn simulate(&self, plan: &Plan) -> SimulationResult;
     fn execute(&mut self, plan: &Plan) -> ExecutionResult;
     fn evaluate(&self, result: &ExecutionResult) -> Feedback;
+    fn replan(&mut self, reflection: &str) -> Option<Plan>;
 }
 
 pub struct BasicAgent {
     pub model: TaskModel,
     pub context: Context,
     pub planner: Option<Box<dyn Planner>>,
+    pub replanner: Option<Box<dyn Replanner>>,
 }
 
 impl BasicAgent {
-    pub fn new(model: TaskModel, context: Context, planner: Option<Box<dyn Planner>>) -> Self {
+    pub fn new(
+        model: TaskModel,
+        context: Context,
+        planner: Option<Box<dyn Planner>>,
+        replanner: Option<Box<dyn Replanner>>,
+    ) -> Self {
         Self {
             model,
             context,
             planner,
+            replanner,
         }
     }
 }
@@ -159,6 +168,22 @@ impl Agent for BasicAgent {
         Feedback {
             score: if result.success { 90 } else { 30 },
             notes: "Dynamic tool execution complete.".into(),
+        }
+    }
+
+    fn replan(&mut self, reflection: &str) -> Option<Plan> {
+        if let Some(replanner) = &self.replanner {
+            self.context
+                .log("replanner", "Using reflection-based replanning");
+            let plan =
+                replanner.generate_followup_plan(&mut self.context, &self.model.goal, reflection);
+            if !plan.steps.is_empty() {
+                Some(plan)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }
