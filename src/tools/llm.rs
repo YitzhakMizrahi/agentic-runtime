@@ -18,7 +18,7 @@ impl LLMTool {
 
 impl Default for LLMTool {
     fn default() -> Self {
-        Self::new("llama3")
+        Self::new("deepseek-r1:7b")
     }
 }
 
