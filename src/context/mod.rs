@@ -10,6 +10,7 @@ pub struct Context {
     pub llm_provider: Option<String>,
     pub tools: HashMap<String, Box<dyn Tool + Send + Sync>>,
     pub memory: InMemoryLog,
+    pub allow_shell_commands: bool,
 }
 
 impl Context {
@@ -19,6 +20,7 @@ impl Context {
             dry_run: false,
             llm_provider: None,
             memory: InMemoryLog::new(),
+            allow_shell_commands: false,
         }
     }
 
@@ -35,6 +37,24 @@ impl Context {
     pub fn enable_dry_run(mut self) -> Self {
         self.dry_run = true;
         self
+    }
+
+    pub fn enable_unsafe_shell(mut self) -> Self {
+        self.allow_shell_commands = true;
+        self
+    }
+
+    pub fn allows(&self, tool: &str, input: &str) -> bool {
+        match tool {
+            "run_command" => {
+                if !self.allow_shell_commands {
+                    let whitelist = ["cargo", "git", "ls", "echo"];
+                    return whitelist.iter().any(|cmd| input.trim().starts_with(cmd));
+                }
+                true
+            }
+            _ => true,
+        }
     }
 
     pub fn get_tool(&self, name: &str) -> Option<&(dyn Tool + Send + Sync)> {
