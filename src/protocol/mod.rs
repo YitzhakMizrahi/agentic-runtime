@@ -1,6 +1,7 @@
 // src/protocol/mod.rs
 
 pub mod planner;
+pub mod replanner;
 
 #[derive(Clone, Debug)]
 pub enum PlanStep {
