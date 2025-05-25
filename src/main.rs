@@ -10,11 +10,41 @@ use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool
 use colored::Colorize;
 
 fn main() {
-    let model = TaskModel::new(
-        "Review the current project state and make a recommendation to improve developer experience.",
-    );
+    let model = TaskModel::new("## Goal: Commit each modified file with a meaningful, standalone commit.
 
-    let llm = LLMTool::new("llama3");
+You have access to the following tools:
+- `git_status`: See which files were modified.
+- `run_command`: You can use this to run any `git` command or other shell commands such as `git diff <file>`, `git add <file>`, and `git commit -m \"<message>\"`
+### Rules:
+1. You must create **one commit per file**.
+2. For each file:
+   - Read the **diff** using `git diff <file>`.
+   - Analyze the content to determine what changed.
+   - Generate a clear and accurate **Conventional Commit message**:
+     - Format: `<type>(<scope>): <description>`
+     - Examples:
+       - `feat(agent): add error handling to planner`
+       - `fix(context): correct logging behavior`
+       - `chore: format code in main.rs`
+     - Choose an appropriate `type` from: `feat`, `fix`, `refactor`, `chore`, `docs`, or `style`.
+     - `scope` should reflect the logical file/module name (e.g., `planner`, `agent`, `context`, etc).
+     - `description` should briefly explain what was changed, ideally inferred from the `diff`.
+3. After committing each file, ensure the working directory is clean before moving to the next.
+4. End with an info message confirming all files were committed.
+
+### Example Workflow:
+1. Run `git_status` and parse the output.
+2. For each modified file:
+   - Run `git diff <file>`
+   - Run `run_command: git add <file>`
+   - Run `run_command: git commit -m \"<message>\"`
+3. Confirm that `git status` shows no remaining staged or modified files.
+4. Output `info: all files committed with structured messages`.
+
+Make sure all commits are clear and meaningful. This will be used to audit your understanding of the changes made.
+");
+
+    let llm = LLMTool::new("deepseek-r1:7b");
     let planner = Box::new(LLMPlanner::new(llm.clone()));
     let replanner = Box::new(LLMReplanner::new(llm));
 
@@ -22,7 +52,7 @@ fn main() {
         .register_tool(FakeEchoTool)
         .register_tool(GitStatusTool)
         .register_tool(ReflectorTool::new())
-        .register_tool(LLMTool::new("llama3"))
+        .register_tool(LLMTool::new("deepseek-r1:7b"))
         .register_tool(RunCommandTool)
         .enable_dry_run();
 
