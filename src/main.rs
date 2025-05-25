@@ -5,7 +5,7 @@ use agentic_runtime::context::Context;
 use agentic_runtime::memory::Memory;
 use agentic_runtime::model::TaskModel;
 use agentic_runtime::protocol::planner::LLMPlanner;
-use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool};
+use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool, RunCommandTool};
 use colored::Colorize;
 use std::io::{self, Write};
 
@@ -30,6 +30,7 @@ fn main() {
         .register_tool(GitStatusTool)
         .register_tool(ReflectorTool::new())
         .register_tool(llm_tool)
+        .register_tool(RunCommandTool)
         .enable_dry_run();
 
     let mut agent = BasicAgent::new(model, context, Some(Box::new(planner)));
