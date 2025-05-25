@@ -4,11 +4,14 @@ use crate::context::Context;
 use crate::protocol::{Plan, PlanStep};
 use crate::tools::Tool;
 use crate::tools::llm::LLMTool;
+use serde::Deserialize;
 
+/// Trait for generating a Plan from a goal + current context.
 pub trait Planner: Send + Sync {
     fn generate_plan(&self, context: &mut Context, goal: &str) -> Plan;
 }
 
+/// Implementation using a local LLMTool + structured prompt.
 pub struct LLMPlanner {
     llm: LLMTool,
 }
@@ -21,7 +24,7 @@ impl LLMPlanner {
 
 impl Planner for LLMPlanner {
     fn generate_plan(&self, context: &mut Context, goal: &str) -> Plan {
-        // Step 1: Serialize memory
+        // Step 1: Serialize memory for planning context
         let memory_dump = context
             .memory()
             .entries
@@ -30,74 +33,88 @@ impl Planner for LLMPlanner {
             .collect::<Vec<_>>()
             .join("\n");
 
-        // Step 2: Compose planning prompt
+        // Step 2: Prompt the LLM with JSON instruction
         let prompt = format!(
-            r#"You are an agentic planner. Your job is to create a list of steps to reach the following goal.
+            r#"You are an autonomous planning agent.
 
-Goal:
-{}
+Your job is to generate a structured JSON plan using only the following tools:
 
-Based on prior memory:
-{}
-
-Use only these available tools:
 - git_status
 - reflect
 - echo
 
-Output format:
-1. git_status
-2. reflect
-3. Info: Optional message here
+Respond only with a JSON object in this format:
+
+{{
+  "plan": [
+    {{ "type": "tool", "name": "git_status" }},
+    {{ "type": "tool", "name": "reflect" }},
+    {{ "type": "info", "message": "Reflect on git output." }}
+  ]
+}}
+
+Goal: {}
+Memory:
+{}
 "#,
             goal, memory_dump
         );
 
-        // Step 3: Call LLMTool
+        // Step 3: Call the LLM
         let result = self.llm.execute(&prompt);
 
-        // Step 4: Parse result into a Plan
+        // Step 4: Parse structured plan from JSON
         match result.success {
-            true => parse_plan_from_response(result.output.unwrap_or_default().as_str()),
+            true => {
+                let json = result.output.unwrap_or_default();
+                match serde_json::from_str::<PlannerResponse>(&json) {
+                    Ok(parsed) => Plan {
+                        steps: parsed
+                            .plan
+                            .into_iter()
+                            .map(|step| match step {
+                                PlannerStep::Tool { name } => PlanStep::ToolCall(name),
+                                PlannerStep::Info { message } => PlanStep::Info(message),
+                            })
+                            .collect(),
+                    },
+                    Err(e) => {
+                        context.log(
+                            "planner",
+                            &format!("❌ Failed to parse plan: {}\n{}", e, json),
+                        );
+                        Plan {
+                            steps: vec![PlanStep::Info("Failed to parse structured plan.".into())],
+                        }
+                    }
+                }
+            }
             false => {
                 context.log(
                     "planner",
-                    &format!("Planning failed: {}", result.output.unwrap_or_default()),
+                    &format!(
+                        "❌ LLM execution failed: {}",
+                        result.output.unwrap_or_default()
+                    ),
                 );
                 Plan {
-                    steps: vec![PlanStep::Info("Planning failed.".into())],
+                    steps: vec![PlanStep::Info("LLM call failed.".into())],
                 }
             }
         }
     }
 }
 
-fn parse_plan_from_response(response: &str) -> Plan {
-    let mut steps = vec![];
-    let known_tools = ["git_status", "reflect", "echo"];
+#[derive(Deserialize)]
+struct PlannerResponse {
+    plan: Vec<PlannerStep>,
+}
 
-    for line in response.lines() {
-        let line = line.trim();
-
-        if let Some(stripped) = line.strip_prefix("Info:") {
-            steps.push(PlanStep::Info(stripped.trim().to_string()));
-        } else if let Some((_n, rest)) = line.split_once('.') {
-            let mut content = rest.trim().to_string();
-
-            // Normalize potential tool name
-            content = content
-                .trim_matches('`') // remove backticks
-                .replace(' ', "_") // "git status" → "git_status"
-                .to_lowercase();
-
-            if known_tools.contains(&content.as_str()) {
-                steps.push(PlanStep::ToolCall(content));
-            } else {
-                // Fallback: treat as info step
-                steps.push(PlanStep::Info(rest.trim().to_string()));
-            }
-        }
-    }
-
-    Plan { steps }
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+enum PlannerStep {
+    #[serde(rename = "tool")]
+    Tool { name: String },
+    #[serde(rename = "info")]
+    Info { message: String },
 }
