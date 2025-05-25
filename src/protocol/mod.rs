@@ -5,7 +5,7 @@ pub mod planner;
 #[derive(Clone, Debug)]
 pub enum PlanStep {
     Info(String),
-    ToolCall(String),
+    ToolCall { name: String, input: String },
 }
 
 #[derive(Clone, Debug)]
