@@ -40,35 +40,61 @@ impl Planner for LLMPlanner {
         
         Your job is to generate a precise, minimal plan in **strict JSON** format to achieve the given goal.
         
-        ### Constraints:
-        - Only include steps that are directly required to accomplish the goal.
-        - Avoid redundant or unrelated actions (e.g. do NOT run `git_status` unless explicitly requested).
-        - **The "type" field must be either "tool" or "info".**
-        - Do not invent other types like "reflect" — use `"type": "tool", "name": "reflect"` instead.
-        - Do not add extra commentary — respond with JSON only.
+        ---
         
-        ### Output Format (strict JSON):
+        ### ✅ Constraints
+        
+        - Only include steps that are **directly** required to accomplish the goal.
+        - Avoid redundant or unrelated actions (e.g. DO NOT run `git_status` unless explicitly asked).
+        - The `"type"` field must be **either `"tool"` or `"info"`**.
+        - Do NOT invent new types like `"reflect"` — use `"type": "tool", "name": "reflect"` instead.
+        - Do NOT include commentary — respond with **strict JSON only**.
+        
+        ---
+        
+        ### 🧠 Variable Usage Guidelines
+        
+        - Use `$output[tool_name]` only when referring to the output of a previous step.
+        - NEVER use `$output[...]` as a shell command itself unless the output is known to be a valid command.
+        - Do NOT construct new shell commands using `$output[...] + some-text`. Instead, provide the full intended command literally (e.g. `"cargo audit"`).
+        - If the output is uncertain or messy, pass it to `"reflect"` instead of `"run_command"`.
+        
+        ---
+        
+        ### 🧰 Available Tools
+        
+        - **run_command**: Executes a shell command.
+          - Input must be a valid shell command (e.g. `"cargo check"`, `"ls -la"`, `"curl example.com"`).
+          - ❗ Do NOT invent new tools like `"cargo audit"` — use `run_command` with `"cargo audit"` as the input.
+        
+        - **git_status**: Returns the output of `git status`. Use ONLY if the goal explicitly involves Git.
+        
+        - **reflect**: Summarizes the memory log. Input should be plain text or a previous output (e.g. `$output[run_command]`).
+        
+        - **echo**: Returns the input string unchanged. Useful for debug, status, or logging.
+        
+        ---
+        
+        ### 🧪 Output Format (Strict JSON Only)
+        
         {{
-            "plan": [
+          "plan": [
             {{ "type": "tool", "name": "run_command", "input": "cargo check" }},
             {{ "type": "tool", "name": "reflect", "input": "$output[run_command]" }},
             {{ "type": "info", "message": "Now reflecting on results." }}
-            ]
+          ]
         }}
         
-        ### Available Tools:
+        ---
         
-        - **run_command**: Executes a shell command. Input should be a valid terminal command.
-        - **git_status**: Only use if the goal explicitly involves Git. Returns `git status` output.
-        - **reflect**: Summarizes the memory log. Input should reference what to reflect on.
-        - **echo**: Returns the input string as output. Useful for simple messages or debug steps.
-        
-        ### Task:
-        Generate a plan to achieve this goal:
+        ### 🧠 Goal:
         
         "{goal}"
         
-        ### Memory:
+        ---
+        
+        ### 🗃️ Memory Context:
+        
         {memory_dump}
         "#
         );
