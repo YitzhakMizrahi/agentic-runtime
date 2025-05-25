@@ -3,6 +3,7 @@
 use crate::tools::{Tool, ToolResult, ToolSpec};
 use serde_json::{Value, json};
 
+#[derive(Clone, Debug)]
 pub struct LLMTool {
     pub model: String,
 }
