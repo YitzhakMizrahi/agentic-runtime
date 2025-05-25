@@ -4,6 +4,7 @@ pub mod fake_echo;
 pub mod git_status;
 pub mod llm;
 pub mod reflector;
+pub mod run_command;
 
 /// Tool metadata for discoverability and planning.
 #[derive(Debug, Clone)]
@@ -59,3 +60,4 @@ pub use fake_echo::FakeEchoTool;
 pub use git_status::GitStatusTool;
 pub use llm::LLMTool;
 pub use reflector::ReflectorTool;
+pub use run_command::RunCommandTool;
