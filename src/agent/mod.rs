@@ -38,10 +38,18 @@ impl Agent for BasicAgent {
             Plan {
                 steps: vec![
                     PlanStep::Info(format!("Understand goal: {}", self.model.goal)),
-                    PlanStep::ToolCall("git_status".into()),
-                    PlanStep::ToolCall("echo".into()),
-                    PlanStep::ToolCall("reflect".into()),
-                    PlanStep::ToolCall("llm".into()),
+                    PlanStep::ToolCall {
+                        name: "git_status".into(),
+                        input: "Check repo state".into(),
+                    },
+                    PlanStep::ToolCall {
+                        name: "reflect".into(),
+                        input: "Summarize changes".into(),
+                    },
+                    PlanStep::ToolCall {
+                        name: "echo".into(),
+                        input: "Task complete.".into(),
+                    },
                     PlanStep::Info("Generate output".into()),
                 ],
             }
@@ -53,7 +61,7 @@ impl Agent for BasicAgent {
         let mut tools_used = vec![];
 
         for step in &plan.steps {
-            if let PlanStep::ToolCall(name) = step {
+            if let PlanStep::ToolCall { name, .. } = step {
                 if let Some(tool) = self.context.get_tool(name) {
                     let spec = tool.spec();
                     tools_used.push(format!(
@@ -84,41 +92,53 @@ impl Agent for BasicAgent {
         let mut combined_output = String::new();
         let mut errors = vec![];
         let mut success = true;
-        let mut latest_output = self.model.goal.clone();
+        let mut previous_outputs = std::collections::HashMap::new();
 
         for step in &plan.steps {
             match step {
-                PlanStep::ToolCall(tool_name) => match self.context.get_tool(tool_name) {
-                    Some(tool) => {
-                        let result = tool.execute(&latest_output);
+                PlanStep::ToolCall { name, input } => {
+                    let resolved_input = if input.starts_with("$output[") && input.ends_with("]") {
+                        let key = &input[8..input.len() - 1];
+                        previous_outputs
+                            .get(key)
+                            .cloned()
+                            .unwrap_or_else(|| format!("(missing output for '{}')", key))
+                    } else {
+                        input.clone()
+                    };
 
-                        self.context.log(
-                            &format!("tool: {}", tool_name),
-                            &format!(
-                                "input: {}\noutput: {}",
-                                latest_output,
-                                result.output.clone().unwrap_or_default()
-                            ),
-                        );
+                    match self.context.get_tool(name) {
+                        Some(tool) => {
+                            let result = tool.execute(&resolved_input);
 
-                        if result.success {
-                            if let Some(output) = result.output.clone() {
-                                combined_output.push_str(&output);
-                                combined_output.push('\n');
-                                latest_output = output;
-                            }
-                        } else {
-                            success = false;
-                            if let Some(err) = result.error.clone() {
-                                errors.push(err);
+                            self.context.log(
+                                &format!("tool: {}", name),
+                                &format!(
+                                    "input: {}\noutput: {}",
+                                    resolved_input,
+                                    result.output.clone().unwrap_or_default()
+                                ),
+                            );
+
+                            if result.success {
+                                if let Some(output) = result.output.clone() {
+                                    previous_outputs.insert(name.clone(), output.clone());
+                                    combined_output.push_str(&output);
+                                    combined_output.push('\n');
+                                }
+                            } else {
+                                success = false;
+                                if let Some(err) = result.error.clone() {
+                                    errors.push(err);
+                                }
                             }
                         }
+                        None => {
+                            success = false;
+                            errors.push(format!("Tool not found: {}", name));
+                        }
                     }
-                    None => {
-                        success = false;
-                        errors.push(format!("Tool not found: {}", tool_name));
-                    }
-                },
+                }
                 PlanStep::Info(message) => {
                     combined_output.push_str(&format!("[INFO] {}\n", message));
                     self.context.log("info", message);
