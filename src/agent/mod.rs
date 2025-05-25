@@ -2,6 +2,7 @@
 
 use crate::context::Context;
 use crate::model::TaskModel;
+use crate::protocol::planner::Planner;
 use crate::protocol::{ExecutionResult, Feedback, Plan, PlanStep, SimulationResult};
 
 pub trait Agent {
@@ -14,19 +15,36 @@ pub trait Agent {
 pub struct BasicAgent {
     pub model: TaskModel,
     pub context: Context,
+    pub planner: Option<Box<dyn Planner>>,
+}
+
+impl BasicAgent {
+    pub fn new(model: TaskModel, context: Context, planner: Option<Box<dyn Planner>>) -> Self {
+        Self {
+            model,
+            context,
+            planner,
+        }
+    }
 }
 
 impl Agent for BasicAgent {
     fn plan(&mut self) -> Plan {
-        Plan {
-            steps: vec![
-                PlanStep::Info(format!("Understand goal: {}", self.model.goal)),
-                PlanStep::ToolCall("git_status".into()),
-                PlanStep::ToolCall("echo".into()),
-                PlanStep::ToolCall("reflect".into()),
-                PlanStep::ToolCall("llm".into()),
-                PlanStep::Info("Generate output".into()),
-            ],
+        if let Some(planner) = &self.planner {
+            self.context.log("planning", "Using dynamic LLM planner");
+            planner.generate_plan(&mut self.context, &self.model.goal)
+        } else {
+            self.context.log("planning", "Using static hardcoded plan");
+            Plan {
+                steps: vec![
+                    PlanStep::Info(format!("Understand goal: {}", self.model.goal)),
+                    PlanStep::ToolCall("git_status".into()),
+                    PlanStep::ToolCall("echo".into()),
+                    PlanStep::ToolCall("reflect".into()),
+                    PlanStep::ToolCall("llm".into()),
+                    PlanStep::Info("Generate output".into()),
+                ],
+            }
         }
     }
 
