@@ -32,33 +32,73 @@ impl Replanner for LLMReplanner {
             .join("\n");
 
         let prompt = format!(
-            r#"You are an autonomous agent replanner.
+            r#"You are an autonomous replanning agent.
+                
+                Your job is to revise or extend the plan in response to the reflection summary. Output a **minimal, valid** plan in **strict JSON format**.
+                
+                ---
+                
+                ### 🔄 Context: Reflection
+                
+                {reflection}
+                
+                ---
 
-Your job is to generate a follow-up plan in strict JSON format based on:
+                ### ❗ Allowed Step Types
 
-- The original goal: "{goal}"
-- The reflection: "{reflection}"
+                Only use:
 
-### Constraints:
-- Only include steps that continue or improve on the previous plan.
-- If the task is complete, return an empty plan: {{ "plan": [] }}
-- Valid step types: "tool" or "info"
-- You may reference prior tool outputs using $output[tool_name]
+                - `"type": "tool"` with `"name"` being one of:
+                - `"run_command"` — executes a shell command like `"git add ."` or `"git push"`
+                - `"git_status"` — runs `git status` (no input required)
+                - `"reflect"` — summarizes previous output or memory (e.g. `"input": "$output[git_status]"`)
+                - `"echo"` — returns the input string as-is (for debug/info)
 
-### Memory:
-{memory_dump}
+                - `"type": "info"` — includes a `"message"` string for progress narration
 
-### Output format:
-{{
-  "plan": [
-    {{ "type": "info", "message": "Next action: ..." }}
-  ]
-}}
-"#
+                Do **not invent** other types like `"shell_command"`, `"log"`, or `"comment"` — only `tool` and `info` are accepted.
+
+                ---
+
+                ### ✅ Output Format
+
+                Each step must be an object with:
+
+                - `"type": "tool"` — for any tool invocation
+                - `"name": "<tool_name>"` — the registered tool name (e.g., `run_command`, `git_status`)
+                - `"input": "<string>"` — what to pass as input to the tool
+
+                For example:
+                
+                ```json
+                {{
+                "plan": [
+                    {{ "type": "tool", "name": "run_command", "input": "ls -la" }},
+                    {{ "type": "tool", "name": "reflect", "input": "$output[run_command]" }},
+                    {{ "type": "info", "message": "Listed directory and reflected on it." }}
+                ]
+                }}
+
+                ❗ Do not use "type": "run_command" — always use "type": "tool" with "name": "run_command".
+                ---
+                
+                ### 🧠 Memory Log
+                
+                {memory_dump}
+                
+                ---
+                
+                ### 🎯 Goal
+                
+                "{goal}"
+                "#
         );
 
         let result = self.llm.execute(&prompt);
         let raw = result.output.unwrap_or_default();
+
+        context.log("replanner", "--- DEBUG: Raw replanner output ---");
+        context.log("replanner", &raw);
 
         let json = Regex::new(r"\{[\s\S]*\}")
             .unwrap()
@@ -66,23 +106,42 @@ Your job is to generate a follow-up plan in strict JSON format based on:
             .map(|m| m.as_str().to_string())
             .unwrap_or_default();
 
-        match serde_json::from_str::<ReplannerResponse>(&json) {
-            Ok(parsed) => Plan {
-                steps: parsed
-                    .plan
-                    .into_iter()
-                    .map(|step| match step {
-                        ReplannerStep::Tool { name, input } => PlanStep::ToolCall { name, input },
-                        ReplannerStep::Info { message } => PlanStep::Info(message),
-                    })
-                    .collect(),
+        context.log("replanner", "--- DEBUG: Extracted JSON block ---");
+        context.log("replanner", &json);
+
+        match result.success {
+            true => match serde_json::from_str::<ReplannerResponse>(&json) {
+                Ok(parsed) => Plan {
+                    steps: parsed
+                        .plan
+                        .into_iter()
+                        .map(|step| match step {
+                            ReplannerStep::Tool { name, input } => PlanStep::ToolCall {
+                                name,
+                                input: input.unwrap_or_default(),
+                            },
+                            ReplannerStep::Info { message } => PlanStep::Info(message),
+                        })
+                        .collect(),
+                },
+                Err(e) => {
+                    context.log(
+                        "replanner",
+                        &format!(
+                            "❌ Failed to parse replanned output:\n{}\n\n[raw]: {}\n\n[cleaned]: {}",
+                            e, raw, json
+                        ),
+                    );
+                    Plan {
+                        steps: vec![PlanStep::Info("Failed to parse replanned output.".into())],
+                    }
+                }
             },
-            Err(e) => {
-                context.log(
-                    "replanner",
-                    &format!("\u{274c} Failed to parse replanned steps:\n{}\n{}", e, raw),
-                );
-                Plan { steps: vec![] }
+            false => {
+                context.log("replanner", &format!("❌ Replanner LLM failed: {}", raw));
+                Plan {
+                    steps: vec![PlanStep::Info("Replanner LLM failed.".into())],
+                }
             }
         }
     }
@@ -90,6 +149,7 @@ Your job is to generate a follow-up plan in strict JSON format based on:
 
 #[derive(Deserialize)]
 struct ReplannerResponse {
+    #[serde(default)]
     plan: Vec<ReplannerStep>,
 }
 
@@ -97,7 +157,11 @@ struct ReplannerResponse {
 #[serde(tag = "type")]
 enum ReplannerStep {
     #[serde(rename = "tool")]
-    Tool { name: String, input: String },
+    Tool {
+        name: String,
+        #[serde(default)]
+        input: Option<String>,
+    },
     #[serde(rename = "info")]
     Info { message: String },
 }
