@@ -4,21 +4,35 @@ use agentic_runtime::agent::{Agent, BasicAgent};
 use agentic_runtime::context::Context;
 use agentic_runtime::memory::Memory;
 use agentic_runtime::model::TaskModel;
+use agentic_runtime::protocol::planner::LLMPlanner;
 use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool};
 use colored::Colorize;
+use std::io::{self, Write};
 
 fn main() {
-    let model = TaskModel::new("Check Git status");
+    // Ask user for a goal
+    println!("\nEnter a goal for the agent to achieve:");
+    print!("> ");
+    io::stdout().flush().unwrap();
 
-    // Step 1: create initial context and register tools that don't need context
+    let mut goal = String::new();
+    io::stdin().read_line(&mut goal).unwrap();
+    let goal = goal.trim();
+
+    let model = TaskModel::new(goal);
+
+    // Set up LLMTool and planner
+    let llm_tool = LLMTool::new("llama3");
+    let planner = LLMPlanner::new(llm_tool.clone());
+
     let context = Context::new()
         .register_tool(FakeEchoTool)
         .register_tool(GitStatusTool)
         .register_tool(ReflectorTool::new())
-        .register_tool(LLMTool::new("llama3"))
+        .register_tool(llm_tool)
         .enable_dry_run();
 
-    let mut agent = BasicAgent { model, context };
+    let mut agent = BasicAgent::new(model, context, Some(Box::new(planner)));
 
     let plan = agent.plan();
     let sim = agent.simulate(&plan);
@@ -39,7 +53,7 @@ fn main() {
         );
     }
 
-    // Step 2: run ReflectorTool manually using memory log as input
+    // Step 2: Run ReflectorTool manually
     if let Some(tool) = agent.context.get_tool("reflect") {
         let memory_as_text = agent
             .context
