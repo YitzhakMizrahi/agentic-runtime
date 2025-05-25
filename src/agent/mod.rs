@@ -6,6 +6,8 @@ use crate::protocol::planner::Planner;
 use crate::protocol::replanner::Replanner;
 use crate::protocol::{ExecutionResult, Feedback, Plan, PlanStep, SimulationResult};
 
+use std::io::{Write, stdin, stdout};
+
 pub trait Agent {
     fn plan(&mut self) -> Plan;
     fn simulate(&self, plan: &Plan) -> SimulationResult;
@@ -98,6 +100,10 @@ impl Agent for BasicAgent {
     }
 
     fn execute(&mut self, plan: &Plan) -> ExecutionResult {
+        println!("--- PLAN ---\n{:#?}", plan);
+        let simulation = self.simulate(plan);
+        println!("--- SIMULATION ---\n{:#?}", simulation);
+
         let mut combined_output = String::new();
         let mut errors = vec![];
         let mut success = true;
@@ -116,6 +122,16 @@ impl Agent for BasicAgent {
                         input.clone()
                     };
 
+                    print!("Execute {}: `{}`? (Y/n): ", name, resolved_input);
+                    stdout().flush().unwrap();
+                    let mut line = String::new();
+                    stdin().read_line(&mut line).unwrap();
+                    let line = line.trim();
+                    if line == "n" || line == "N" {
+                        println!("Skipped {}\n", name);
+                        continue;
+                    }
+
                     match self.context.get_tool(name) {
                         Some(tool) => {
                             let result = tool.execute(&resolved_input);
@@ -123,7 +139,7 @@ impl Agent for BasicAgent {
                             self.context.log(
                                 &format!("tool: {}", name),
                                 &format!(
-                                    "input: {}\noutput: {}",
+                                    "[input] {}\n[output] {}",
                                     resolved_input,
                                     result.output.clone().unwrap_or_default()
                                 ),
