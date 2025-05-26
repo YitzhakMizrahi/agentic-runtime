@@ -6,7 +6,7 @@ use agentic_runtime::memory::Memory;
 use agentic_runtime::model::TaskModel;
 use agentic_runtime::protocol::planner::LLMPlanner;
 use agentic_runtime::protocol::replanner::LLMReplanner;
-use agentic_runtime::tools::{FakeEchoTool, GitStatusTool, LLMTool, ReflectorTool, RunCommandTool};
+use agentic_runtime::tools::{LLMTool, ReflectorTool, RunCommandTool};
 use colored::Colorize;
 
 fn main() {
@@ -49,8 +49,6 @@ Make sure all commits are clear and meaningful. This will be used to audit your 
     let replanner = Box::new(LLMReplanner::new(llm));
 
     let context = Context::new()
-        .register_tool(FakeEchoTool)
-        .register_tool(GitStatusTool)
         .register_tool(ReflectorTool::new())
         .register_tool(LLMTool::new("deepseek-r1:7b"))
         .register_tool(RunCommandTool)
