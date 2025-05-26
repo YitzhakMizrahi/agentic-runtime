@@ -1,7 +1,5 @@
 // src/tools/mod.rs
 
-pub mod fake_echo;
-pub mod git_status;
 pub mod llm;
 pub mod reflector;
 pub mod run_command;
@@ -56,8 +54,6 @@ pub trait Tool {
     }
 }
 
-pub use fake_echo::FakeEchoTool;
-pub use git_status::GitStatusTool;
 pub use llm::LLMTool;
 pub use reflector::ReflectorTool;
 pub use run_command::RunCommandTool;
