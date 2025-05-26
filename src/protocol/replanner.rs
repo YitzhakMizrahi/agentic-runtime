@@ -34,55 +34,52 @@ impl Replanner for LLMReplanner {
         let prompt = format!(
             r#"You are an autonomous replanning agent.
 
-                Your job is to revise or extend the plan in response to the reflection summary. Output a **minimal, valid** plan in **strict JSON format**.
+Your job is to revise or extend the plan in response to the reflection summary. Output a **minimal, valid** plan in **strict JSON format**.
 
-                ---
+Before proposing a new plan, compare the reflection with the original goal.
 
-                ### 🔄 Context: Reflection
+🛑 If the reflection clearly shows the goal was achieved, respond with:
+{{ "plan": [ {{ "type": "info", "message": "Goal achieved. No further action required." }} ] }}
 
-                {reflection}
 
-                ---
+---
 
-                ### ❗ Allowed Step Types
+### 🔄 Reflection
 
-                Only use:
+{reflection}
 
-                - "type": "tool" with "name" being one of:
-                - "run_command" — executes a shell command like "git add ." or "git push"
-                - "git_status" — runs `git status` (no input required)
-                - "reflect" — summarizes previous output or memory (e.g. "input": "$output[git_status]")
-                - "echo" — returns the input string as-is (for debug/info)
+---
 
-                - "type": "info" — includes a "message" string for progress narration
+### 🧠 Memory Log
 
-                Do **not invent** other types like "shell_command", "log", or "comment" — only `tool` and `info` are accepted.
+{memory_dump}
 
-                ---
+---
 
-                ### ✅ Output Format
+### 🎯 Goal
 
-                {{
-                  "plan": [
-                    {{ "type": "tool", "name": "run_command", "input": "ls -la" }},
-                    {{ "type": "tool", "name": "reflect", "input": "$output[run_command]" }},
-                    {{ "type": "info", "message": "Listed directory and reflected on it." }}
-                  ]
-                }}
+{goal}
 
-                ❗ Do not use "type": "run_command" — always use "type": "tool" with "name": "run_command".
-                ---
+---
 
-                ### 🧠 Memory Log
+### 🧪 Output Format (STRICT JSON)
 
-                {memory_dump}
+{{
+  "plan": [
+    {{ "type": "tool", "name": "run_command", "input": "cargo check" }},
+    {{ "type": "tool", "name": "reflect", "input": "$output[run_command]" }},
+    {{ "type": "info", "message": "Check complete and reflected." }}
+  ]
+}}
 
-                ---
+### 🚫 Constraints
 
-                ### 🎯 Goal
-
-                "{goal}"
-                "#
+- Only use `tool` and `info` as valid step types.
+- Never use `loop`, `shell`, `comment`, or other custom formats.
+- All tools must use the format: {{ "type": "tool", "name": "<tool>", "input": "<input>" }}
+- Supported tools: `run_command`, `reflect`
+- Respond with JSON ONLY — do not explain anything outside the JSON block.
+"#
         );
 
         let result = self.llm.execute(&prompt);
@@ -103,7 +100,7 @@ impl Replanner for LLMReplanner {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let json = Regex::new(r#"(?s)\{\s*"plan"\s*:\s*\[.*?\]\s*\}"#)
+        let json = Regex::new(r#"(?s)\{\s*\"plan\"\s*:\s*\[.*?\]\s*\}"#)
             .unwrap()
             .find(&cleaned)
             .map(|m| m.as_str().to_string())
@@ -141,7 +138,7 @@ impl Replanner for LLMReplanner {
             .cloned()
             .unwrap_or_default();
 
-        let registered_tools = ["run_command", "git_status", "reflect", "echo"];
+        let registered_tools = ["run_command", "reflect"];
         let validation_errors = validate_plan(&plan_steps_json, &registered_tools);
 
         for error in validation_errors.iter() {
