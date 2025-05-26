@@ -106,7 +106,7 @@ impl Agent for BasicAgent {
 
         let mut combined_output = String::new();
         let mut errors = vec![];
-        let mut success = true;
+        let mut critical_failures = 0;
         let mut previous_outputs = std::collections::HashMap::new();
 
         for step in &plan.steps {
@@ -152,14 +152,44 @@ impl Agent for BasicAgent {
                                     combined_output.push('\n');
                                 }
                             } else {
-                                success = false;
-                                if let Some(err) = result.error.clone() {
-                                    errors.push(err);
+                                let error_msg =
+                                    result.error.clone().unwrap_or("Unknown error".to_string());
+                                errors.push(error_msg.clone());
+
+                                // 🎯 DYNAMIC INTELLIGENCE: Classify tool failures by criticality
+                                // Core tools (run_command) are critical, auxiliary tools (reflect) are not
+                                let is_critical = match name.as_str() {
+                                    "run_command" => true,    // Core execution tool
+                                    "reflect" => false,       // Auxiliary analysis tool
+                                    "analyze_error" => false, // Auxiliary analysis tool
+                                    _ => true, // Default to critical for unknown tools
+                                };
+
+                                if is_critical {
+                                    critical_failures += 1;
+                                }
+
+                                // Log detailed error for replanner to see
+                                self.context.log(
+                                    "execution_error",
+                                    &format!("Tool '{}' failed: {}", name, error_msg),
+                                );
+
+                                // Use AI to analyze the error and suggest fixes (only for critical failures)
+                                if is_critical {
+                                    if let Some(analyzer) = self.context.get_tool("analyze_error") {
+                                        let analysis_result = analyzer.execute(&error_msg);
+                                        if analysis_result.success {
+                                            if let Some(analysis) = analysis_result.output {
+                                                self.context.log("error_analysis", &analysis);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                         None => {
-                            success = false;
+                            critical_failures += 1;
                             errors.push(format!("Tool not found: {}", name));
                         }
                     }
@@ -172,6 +202,10 @@ impl Agent for BasicAgent {
         }
 
         self.model.set_output(combined_output.trim().to_string());
+
+        // 🎯 DYNAMIC INTELLIGENCE: Success based on critical tool performance
+        // If core tools succeeded, the plan succeeded even if auxiliary tools failed
+        let success = critical_failures == 0;
 
         ExecutionResult {
             success,
