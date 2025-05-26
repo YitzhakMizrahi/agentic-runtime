@@ -17,10 +17,23 @@ impl Tool for RunCommandTool {
 
         match output {
             Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                let stderr = String::from_utf8_lossy(&out.stderr);
                 let mut result = String::new();
-                result.push_str(&String::from_utf8_lossy(&out.stdout));
-                result.push_str(&String::from_utf8_lossy(&out.stderr));
-                ToolResult::success(result.trim())
+                result.push_str(&stdout);
+                result.push_str(&stderr);
+
+                // Check if command succeeded (exit code 0)
+                if out.status.success() {
+                    ToolResult::success(result.trim())
+                } else {
+                    // Command failed - return as error with output for context
+                    ToolResult::failure(&format!(
+                        "Command failed (exit code {}): {}",
+                        out.status.code().unwrap_or(-1),
+                        result.trim()
+                    ))
+                }
             }
             Err(e) => ToolResult::failure(&format!("Command execution failed: {e}")),
         }
