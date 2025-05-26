@@ -32,62 +32,56 @@ impl Planner for LLMPlanner {
             .join("\n");
 
         let prompt = format!(
-            r#"You are an autonomous planning agent.
-                
-                Your job is to generate a **minimal, valid** action plan in **strict JSON format** to achieve the given goal.
-                
-                ---
-
-                ### 🧠 Guidelines
-
-                - Think before acting: break the task into atomic steps.
-                - Prefer precision and minimalism.
-                - Only include steps directly required to accomplish the goal.
-
-                ---
-
-                ### 🚫 Hard Constraints
-
-                - The only valid values for "type" are "tool" and "info".
-                - Use "type": "tool" with a valid "name" for **all tools**, including `echo`.
-                - Do **not** invent new types like "reflect", "log", or "echo" as top-level `type`.
-                - Do not include markdown, commentary, or explanations. Respond with JSON only.
-
-                ---
-
-                ### 🛠️ Available Tools
-
-                - **run_command**: Executes a shell command. Input must be a valid terminal command (e.g. "cargo check", "ls -la").
-                - **git_status**: Returns output of `git status`. Input is optional and ignored.
-                - **reflect**: Summarizes the memory log. Input can be plain text or a reference like `$output[...]`.
-                - **echo**: Returns the input string unchanged. Useful for debug or log steps.
-
-                ---
-
-                ### 🧪 Output Format (Strict JSON)
-
-                {{
-                  "plan": [
-                    {{ "type": "tool", "name": "run_command", "input": "cargo check" }},
-                    {{ "type": "tool", "name": "reflect", "input": "$output[run_command]" }},
-                    {{ "type": "tool", "name": "echo", "input": "Now reflecting on results..." }},
-                    {{ "type": "info", "message": "Compilation check complete." }}
-                  ]
-                }}
-
-                ---
-
-                ### 🤩 Context: Memory Log
-
-                {memory_dump}
-
-                ---
-
-                ### 🛍️ Goal
-
-                "{goal}"
-                "#
-        );
+                "You are an autonomous planning agent.
+            
+            Your job is to generate a minimal, valid action plan in strict JSON format to achieve the given goal.
+            
+            ---
+            
+            ### 🧪 Output Format (STRICT JSON)
+            
+            Only emit a JSON object using this structure:
+            
+            {{
+              \"plan\": [
+                {{ \"type\": \"tool\", \"name\": \"run_command\", \"input\": \"cargo check\" }},
+                {{ \"type\": \"tool\", \"name\": \"reflect\", \"input\": \"$output[run_command]\" }},
+                {{ \"type\": \"info\", \"message\": \"Compilation check complete.\" }}
+              ]
+            }}
+            
+            ---
+            
+            ### 🚫 Hard Constraints
+            
+            - `type` must be only `tool` or `info`.
+            - `tool` steps must specify a `name` and `input`.
+            - ❗ Do NOT use `type: \"reflect\"`. Instead, use `type: \"tool\", name: \"reflect\"`.
+            - Never use: `loop`, `shell`, `comment`, or other made-up types.
+            - Do not include markdown, commentary, or explanations.
+            
+            ---
+            
+            ### 🛠️ Available Tools
+            
+            - run_command: Executes a shell command (e.g. \"cargo check\", \"ls -la\").
+            - reflect: Summarizes memory logs. Input can be text or a reference like `$output[...]`.
+            
+            ---
+            
+            ### 🤩 Context: Memory Log
+            
+            {}
+            
+            ---
+            
+            ### 🛍️ Goal
+            
+            \"{}\"
+            ",
+                memory_dump,
+                goal
+            );
 
         let result = self.llm.execute(&prompt);
         let raw = result.output.unwrap_or_default();
@@ -145,7 +139,7 @@ impl Planner for LLMPlanner {
             .cloned()
             .unwrap_or_default();
 
-        let registered_tools = ["run_command", "git_status", "reflect", "echo"];
+        let registered_tools = ["run_command", "reflect"];
         let validation_errors = validate_plan(&plan_steps_json, &registered_tools);
 
         for error in validation_errors.iter() {
