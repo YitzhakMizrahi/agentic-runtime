@@ -1,5 +1,7 @@
 // src/tools/mod.rs
 
+pub mod error_analyzer;
+pub mod goal_analyzer;
 pub mod llm;
 pub mod reflector;
 pub mod run_command;
@@ -54,6 +56,8 @@ pub trait Tool {
     }
 }
 
+pub use error_analyzer::ErrorAnalyzerTool;
+pub use goal_analyzer::GoalAnalyzerTool;
 pub use llm::LLMTool;
 pub use reflector::ReflectorTool;
 pub use run_command::RunCommandTool;
