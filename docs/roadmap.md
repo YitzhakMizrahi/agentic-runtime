@@ -2,167 +2,165 @@
 
 ## Overview
 
-This roadmap outlines the potential development path for the Agentic Runtime and Agent Operating System architecture.
+This roadmap outlines the development path for the **Agentic Runtime**.
 
-The goal is to evolve from conceptual exploration into a functional runtime capable of supporting persistent personal agents and scalable worker agents.
+The goal is to build a reliable execution infrastructure for intelligent agents — enabling systems that can plan, act, reflect, and learn while interacting safely with tools and environments.
 
-This roadmap is intentionally exploratory and may evolve as the architecture matures.
-
----
-
-# Phase 1 — Concept & Architecture
-
-Focus: defining the core ideas and system architecture.
-
-Goals:
-
-* define the philosophy of persistent personal agents
-* document the Agent OS architecture
-* define the agent kernel responsibilities
-* explore worker agent lifecycle models
-* identify core research challenges
-
-Deliverables:
-
-* architecture documentation
-* system diagrams
-* design notes
-
-Status: **In progress**
+The runtime focuses on **agent execution infrastructure**, not just agent applications.
 
 ---
 
-# Phase 2 — Runtime Primitives
+# Phase 1 — Core Runtime Foundations
 
-Focus: implementing minimal runtime capabilities.
+Focus: establishing the minimal runtime architecture.
 
 Goals:
 
-* implement basic agent lifecycle management
-* implement state persistence
-* implement agent spawning mechanisms
-* define agent execution model
-* implement logging and observability primitives
+* implement the core agent lifecycle
+* define the runtime execution loop
+* implement the tool interface system
+* integrate memory primitives
+* establish basic observability
 
-Potential components:
+Key components:
 
 * agent runtime loop
-* state store
-* execution controller
-* event system
+* tool execution interface
+* state persistence layer
+* execution logging
+
+Outcome:
+
+A minimal runtime capable of executing simple agent plans.
 
 ---
 
-# Phase 3 — Personal Agent Layer
+# Phase 2 — Developer Experience
 
-Focus: building the persistent personal agent.
+Focus: making the runtime usable for developers.
 
 Goals:
 
-* implement long-term memory
-* implement user modeling
-* implement preference learning
-* implement task analysis
-* implement delegation logic
+* improve CLI tooling
+* add debugging and tracing
+* improve logging and observability
+* support plugin-style tool registration
+* enable local LLM integration
 
-The personal agent becomes the core interface between the user and the system.
+Outcome:
+
+A developer-friendly environment for building and experimenting with agents.
 
 ---
 
-# Phase 4 — Worker Agent System
+# Phase 3 — Smarter Agent Capabilities
 
-Focus: implementing worker agent creation and execution.
+Focus: improving reasoning and memory integration.
 
 Goals:
 
-* worker agent specification model
-* dynamic worker creation
-* task delegation
-* worker supervision
-* result aggregation
+* structured planning improvements
+* memory querying
+* reflection loops
+* plan validation and safety checks
+* improved error recovery
 
-The system should support creating many specialized worker agents.
+Outcome:
+
+Agents that can reason more effectively and adapt to failures.
+
+---
+
+# Phase 4 — Multi-Agent Coordination
+
+Focus: supporting multiple interacting agents.
+
+Goals:
+
+* agent spawning mechanisms
+* task delegation between agents
+* coordination primitives
+* shared memory mechanisms
+
+Example:
+
+Coordinator Agent
+↓
+Worker Agents
+
+Outcome:
+
+Systems capable of distributing complex tasks across multiple agents.
 
 ---
 
 # Phase 5 — Scheduling & Parallel Execution
 
-Focus: scaling the system.
+Focus: improving scalability.
 
 Goals:
 
-* worker scheduling system
-* parallel task execution
-* retry policies
-* task queues
-* distributed execution model
+* task scheduling
+* parallel tool execution
+* retry and cancellation mechanisms
+* resource limits and safety controls
 
-This phase enables the system to execute large-scale tasks.
+Outcome:
+
+Reliable execution of complex agent workloads.
 
 ---
 
-# Phase 6 — Identity Continuity
+# Phase 6 — Observability & Runtime Introspection
 
-Focus: maintaining stable agent identity.
+Focus: making agent behavior observable and debuggable.
 
 Goals:
 
-* structured user models
-* identity persistence mechanisms
-* policy enforcement
-* drift prevention
-* memory consolidation
+* execution tracing
+* runtime metrics
+* agent behavior inspection
+* debugging tools
 
-This phase addresses one of the most difficult problems in long-lived agents.
+Outcome:
+
+Developers can understand and debug agent behavior effectively.
 
 ---
 
-# Phase 7 — Agent Organizations
+# Phase 7 — Distributed Execution
 
-Focus: enabling complex agent ecosystems.
-
-Goals:
-
-* hierarchical agent structures
-* teams of specialized agents
-* agent-to-agent communication
-* collaborative task execution
-
-Example structure:
-
-Personal Agent
-↓
-Research Agents
-Engineering Agents
-Monitoring Agents
-
-This allows the system to form dynamic organizations of agents.
-
----
-
-# Phase 8 — Distributed Agent Systems
-
-Focus: scaling beyond a single runtime.
+Focus: scaling beyond a single runtime instance.
 
 Goals:
 
-* distributed worker clusters
-* cloud execution
-* resource allocation
-* multi-user agent environments
+* distributed worker execution
+* remote tool execution
+* multi-runtime coordination
+* resource management
 
-This phase enables large-scale agent ecosystems.
+Outcome:
+
+Large-scale distributed agent systems.
 
 ---
 
 # Long-Term Vision
 
-The long-term goal is to create an **Agent Operating System** capable of supporting persistent intelligent agents that collaborate with humans and coordinate large networks of specialized worker agents.
+The long-term goal is to build a **robust runtime for intelligent systems**.
 
 In this model:
 
 Humans define goals.
-Agents coordinate execution.
-Distributed systems perform the work.
+Agents reason about plans.
+The runtime safely executes actions.
 
-The personal agent becomes a trusted digital collaborator capable of managing complex tasks on behalf of its user.
+This foundation can support a wide range of systems, including:
+
+* autonomous assistants
+* developer automation tools
+* research agents
+* multi-agent systems
+* intelligent infrastructure
+
+The Agentic Runtime provides the **execution layer for intelligent agents**.
