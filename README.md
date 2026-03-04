@@ -1,38 +1,126 @@
-# Agentic Runtime
+# Personal Agent Architecture
 
-**The Linux of the Agentic Age** — a modular, secure, Rust-native runtime for building intelligent, tool-using agents that can plan, act, reflect, and adapt.
+## Overview
 
-This project is a foundational stepping stone toward open, safe, and powerful agentic systems. Inspired by the idea of an "OS1" (as in *Her*), but built as a composable framework for developers.
+The system is built around a **persistent personal agent** that represents the user and coordinates task execution.
 
-## Goals
+Rather than interacting with many isolated agents, the user interacts with a single long-lived entity.
 
-* ✅ Safe, pluggable tools (Git, Search, Editor, API)
-* ✅ Clean planning + execution lifecycle (MCP: Model-Context-Protocol)
-* ✅ Memory integration (structured + semantic)
-* ✅ Language-agnostic access (via CLI, REST, FFI)
-* ✅ Simulation and reflection built-in
+User
+↓
+Personal Agent
+↓
+Agent Runtime
+↓
+Worker Agents
+↓
+External Tools / APIs
 
-## Why?
+---
 
-Because the future will run on agents — and we need a trustworthy, open foundation for them.
+## Personal Agent Responsibilities
 
-> Build the primitives. Compose anything.
+The personal agent is responsible for:
 
-## Project Structure
+### Identity
 
-* `agent/` – Core agent trait and lifecycle
-* `model/` – Agent state and domain data
-* `context/` – Tools, environment, LLM access
-* `protocol/` – Planning, simulation, reflection logic
-* `tools/` – Executable tool interfaces (Git, Search, etc.)
-* `memory/` – Memory interfaces and backends
+Maintains a stable identity across time.
 
-## Development Standards
+### User Modeling
 
-All commits must pass:
+Understands:
 
-- `cargo fmt` (formatting)
-- `cargo clippy` (linting with no warnings)
-- `cargo check` (basic build check)
+* preferences
+* goals
+* communication style
+* risk tolerance
+* past decisions
 
-These are enforced via a native Git pre-commit hook in `.git/hooks/pre-commit`.
+### Memory
+
+Stores long-term information such as:
+
+* previous interactions
+* projects
+* contextual knowledge
+
+### Strategic Reasoning
+
+Decides:
+
+* how to approach tasks
+* which agents to spawn
+* how to coordinate execution
+
+### Delegation
+
+Delegates work to specialized worker agents.
+
+---
+
+## Worker Agents
+
+Worker agents are **temporary agents** created to execute specific tasks.
+
+Examples include:
+
+* research agents
+* analysis agents
+* coding agents
+* negotiation agents
+
+Worker agents:
+
+* operate with limited context
+* have clearly defined roles
+* terminate after completing tasks
+
+---
+
+## Delegation Model
+
+Example flow:
+
+User requests task
+↓
+Personal agent analyzes request
+↓
+Personal agent creates worker specification
+↓
+Worker agent executes task
+↓
+Results returned
+↓
+Personal agent integrates outcome
+
+---
+
+## Advantages of the Model
+
+### Persistent Relationship
+
+The user interacts with a consistent intelligence rather than a stateless system.
+
+### Scalability
+
+Worker agents allow parallel execution of tasks.
+
+### Safety
+
+Sensitive context remains within the personal agent.
+
+### Specialization
+
+Worker agents can be tailored for specific jobs.
+
+---
+
+## Long-Term Potential
+
+This architecture enables:
+
+* AI organizations composed of many agents
+* persistent digital assistants
+* large-scale task orchestration
+
+The personal agent acts as the **central coordinator of intelligence**.
