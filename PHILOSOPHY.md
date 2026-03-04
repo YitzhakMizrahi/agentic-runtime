@@ -64,6 +64,17 @@ let solution = meta_agent.solve(complex_problem);
 - Interruptible and steerable execution
 - Human oversight without micromanagement
 
+### 5. Runtime First Design
+
+Agents should not directly execute tools or actions.
+
+All execution must pass through a runtime layer that provides:
+
+- scheduling
+- validation
+- observability
+- safety controls
+
 ## 🚀 Practical Applications
 
 ### Error Recovery
